@@ -215,9 +215,6 @@ class IISNApp {
     } catch (e) {
       console.warn('[IISN] Dark layer fallback:', e);
     }
-    } catch (e) {
-      console.warn('[IISN] Dark layer fallback:', e);
-    }
 
     try {
       // 2. Official Google Maps Roadmap (Full road names, shops, buildings, landmarks)
@@ -249,9 +246,6 @@ class IISNApp {
       console.warn('[IISN] Railway tracks overlay fallback:', e);
     }
 
-    if (!photorealLoaded) {
-      this.viewer.scene.globe.show = true;
-    }
 
     // 4. Configure Intuitive 3D Mouse Controls & Ground Collision Protection
     const controller = this.viewer.scene.screenSpaceCameraController;

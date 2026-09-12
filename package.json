@@ -15,11 +15,13 @@
   "build": {
     "appId": "in.iisn.console",
     "productName": "IISN Tactical Console",
+    "forceCodeSigning": false,
     "directories": {
       "output": "dist"
     },
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "signAndEditExecutable": false
     },
     "files": [
       "main-electron.cjs",
