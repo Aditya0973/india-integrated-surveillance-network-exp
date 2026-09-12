@@ -258,7 +258,8 @@ class IISNApp {
     // Ground clipping & collision prevention (managed natively by Cesium controller)
     controller.enableCollisionDetection = true;
     controller.minimumZoomDistance = 45;
-    this.viewer.scene.globe.depthTestAgainstTerrain = true;
+    // Set depthTestAgainstTerrain to false so billboards/points render in high-throughput GPU batches without CPU per-frame z-buffer terrain test stalls
+    this.viewer.scene.globe.depthTestAgainstTerrain = false;
 
     // Left-Click Drag: Pan / Orbit across 3D globe smoothly
     // Right-Click Drag: Rotate & Tilt 3D perspective pitch
@@ -502,7 +503,6 @@ class IISNApp {
 
   // 1. Live Airspace Flight Tracking (India National Airspace)
   async pollFlights() {
-    if (!this.activeLayers.flights) return;
     try {
       const res = await fetch('/api/flights/india');
       const data = await res.json();
@@ -577,19 +577,18 @@ class IISNApp {
             trail.polyline.positions = Cesium.Cartesian3.fromDegreesArrayHeights(flatPoints);
             trail.show = isVisible;
           } else {
+            const trailColor = isMil 
+              ? Cesium.Color.fromCssColorString('#EF4444').withAlpha(0.75) 
+              : Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.75);
+
             const trail = this.viewer.entities.add({
               show: isVisible,
               polyline: {
                 positions: Cesium.Cartesian3.fromDegreesArrayHeights(flatPoints),
-                width: 2.8,
-                arcType: Cesium.ArcType.GEODESIC,
-                material: new Cesium.PolylineGlowMaterialProperty({
-                  glowPower: 0.35,
-                  color: isMil ? Cesium.Color.fromCssColorString('#EF4444') : Cesium.Color.fromCssColorString('#38BDF8')
-                }),
-                depthFailMaterial: isMil
-                  ? Cesium.Color.fromCssColorString('#EF4444').withAlpha(0.4)
-                  : Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.4)
+                width: 2.0,
+                arcType: Cesium.ArcType.NONE,
+                material: trailColor,
+                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000)
               }
             });
             this.flightTrailEntities.set(f.icao24, trail);
@@ -618,70 +617,100 @@ class IISNApp {
 
   // 2. Live Maritime AIS Traffic with directional ship vectors
   async pollMaritime() {
-    if (!this.activeLayers.maritime) return;
     try {
       const res = await fetch('/api/maritime/india');
       const data = await res.json();
       if (!data || !data.vessels) return;
 
-      this.marineEntities.forEach(ent => this.viewer.entities.remove(ent));
-      this.marineEntities.clear();
+      const currentMmsis = new Set();
       const isVisible = Boolean(this.activeLayers.maritime);
 
       data.vessels.forEach(v => {
+        currentMmsis.add(v.mmsi);
         const pos = Cesium.Cartesian3.fromDegrees(v.lon, v.lat, 10);
         const isMil = v.isMilitary;
         const colorHex = isMil ? '#D45B3E' : '#00FF88';
         const rot = -Cesium.Math.toRadians(v.heading || 0);
 
-        const ent = this.viewer.entities.add({
-          name: v.name,
-          show: isVisible,
-          position: pos,
-          billboard: {
-            image: createShipSvg(colorHex),
-            rotation: rot,
-            alignedAxis: Cesium.Cartesian3.ZERO,
-            width: 20,
-            height: 20,
-            verticalOrigin: Cesium.VerticalOrigin.CENTER,
-            horizontalOrigin: Cesium.HorizontalOrigin.CENTER
-          },
-          label: {
-            text: v.name,
-            font: 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace',
-            scale: 0.40,
-            fillColor: Cesium.Color.fromCssColorString('#F3EFEF'),
-            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-            outlineWidth: 3,
-            outlineColor: Cesium.Color.fromCssColorString('#0B0909'),
-            showBackground: true,
-            backgroundColor: Cesium.Color.fromCssColorString('rgba(27, 21, 21, 0.88)'),
-            pixelOffset: new Cesium.Cartesian2(0, -16),
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 600000)
-          }
-        });
+        if (this.marineEntities.has(v.mmsi)) {
+          const ent = this.marineEntities.get(v.mmsi);
+          ent.position = pos;
+          if (ent.billboard) ent.billboard.rotation = rot;
+          ent.show = isVisible;
+          ent.customData = {
+            id: v.mmsi,
+            mmsi: v.mmsi,
+            callsign: v.name,
+            name: v.name,
+            vesselType: v.vesselType || (isMil ? 'Naval Warship' : 'Commercial Vessel'),
+            isShip: true,
+            isMilitary: isMil,
+            operator: isMil ? 'Indian Navy / Coast Guard' : 'Commercial Shipping Fleet',
+            route: `Destination: ${v.destination || 'Indian Coastal Port'}`,
+            altitudeFt: 0,
+            speedKnots: v.speedKnots,
+            heading: v.heading,
+            lat: v.lat,
+            lon: v.lon
+          };
+        } else {
+          const ent = this.viewer.entities.add({
+            name: v.name,
+            show: isVisible,
+            position: pos,
+            billboard: {
+              image: createShipSvg(colorHex),
+              rotation: rot,
+              alignedAxis: Cesium.Cartesian3.ZERO,
+              width: 20,
+              height: 20,
+              verticalOrigin: Cesium.VerticalOrigin.CENTER,
+              horizontalOrigin: Cesium.HorizontalOrigin.CENTER
+            },
+            label: {
+              text: v.name,
+              font: 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace',
+              scale: 0.40,
+              fillColor: Cesium.Color.fromCssColorString('#F3EFEF'),
+              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+              outlineWidth: 3,
+              outlineColor: Cesium.Color.fromCssColorString('#0B0909'),
+              showBackground: true,
+              backgroundColor: Cesium.Color.fromCssColorString('rgba(27, 21, 21, 0.88)'),
+              pixelOffset: new Cesium.Cartesian2(0, -16),
+              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 600000)
+            }
+          });
 
-        ent.customData = {
-          id: v.mmsi,
-          mmsi: v.mmsi,
-          callsign: v.name,
-          name: v.name,
-          vesselType: v.vesselType || (isMil ? 'Naval Warship' : 'Commercial Vessel'),
-          isShip: true,
-          isMilitary: isMil,
-          operator: isMil ? 'Indian Navy / Coast Guard' : 'Commercial Shipping Fleet',
-          route: `Destination: ${v.destination || 'Indian Coastal Port'}`,
-          altitudeFt: 0,
-          speedKnots: v.speedKnots,
-          heading: v.heading,
-          lat: v.lat,
-          lon: v.lon
-        };
+          ent.customData = {
+            id: v.mmsi,
+            mmsi: v.mmsi,
+            callsign: v.name,
+            name: v.name,
+            vesselType: v.vesselType || (isMil ? 'Naval Warship' : 'Commercial Vessel'),
+            isShip: true,
+            isMilitary: isMil,
+            operator: isMil ? 'Indian Navy / Coast Guard' : 'Commercial Shipping Fleet',
+            route: `Destination: ${v.destination || 'Indian Coastal Port'}`,
+            altitudeFt: 0,
+            speedKnots: v.speedKnots,
+            heading: v.heading,
+            lat: v.lat,
+            lon: v.lon
+          };
 
-        this.marineEntities.set(v.mmsi, ent);
+          this.marineEntities.set(v.mmsi, ent);
+        }
       });
+
+      // Remove stale ships
+      for (const [mmsi, ent] of this.marineEntities.entries()) {
+        if (!currentMmsis.has(mmsi)) {
+          this.viewer.entities.remove(ent);
+          this.marineEntities.delete(mmsi);
+        }
+      }
 
       const stat = document.getElementById('stat-maritime');
       if (stat) stat.innerText = this.marineEntities.size;
@@ -692,7 +721,6 @@ class IISNApp {
 
   // 3. Indian Railways Live Moving Express & Freight Trains
   async pollTrains() {
-    if (!this.activeLayers.railways) return;
     try {
       const res = await fetch('/api/railways/live-trains');
       const data = await res.json();
@@ -1115,12 +1143,9 @@ class IISNApp {
               show: isVisible,
               polyline: {
                 positions: Cesium.Cartesian3.fromDegreesArrayHeights(flat),
-                width: 1.8,
-                arcType: Cesium.ArcType.GEODESIC,
-                material: new Cesium.PolylineGlowMaterialProperty({
-                  glowPower: 0.3,
-                  color: Cesium.Color.fromCssColorString('#00F2FE').withAlpha(0.7)
-                })
+                width: 1.5,
+                arcType: Cesium.ArcType.NONE,
+                material: Cesium.Color.fromCssColorString('#00F2FE').withAlpha(0.65)
               }
             });
             this.isroEntities.push(orbitEnt);
