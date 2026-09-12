@@ -44,7 +44,7 @@ class IISNApp {
     this.trafficLayer = null;
     this.satelliteLayer = null;
     this.darkLayer = null;
-    this.currentBasemap = '3d';
+    this.currentBasemap = 'dark';
     this.selectedMaleVoice = null;
     this.availableVoices = [];
     this.hls = null;
@@ -161,25 +161,31 @@ class IISNApp {
     });
 
     this.viewer.resolutionScale = window.devicePixelRatio > 1 ? Math.min(window.devicePixelRatio, 1.25) : 1.0;
+    this.viewer.scene.globe.show = true;
 
-    // 2. Load Google Photorealistic 3D Tiles via Cesium Ion Token with Dynamic LOD Optimizations
-    let photorealLoaded = false;
+    // 2. Load Google Photorealistic 3D Tiles via Cesium Ion Token with Aggressive 60 FPS LOD Optimizations
     if (this.config.cesiumToken) {
       try {
         console.log('[IISN] Initializing Google Photorealistic 3D Tiles...');
         this.photorealTileset = await Cesium.createGooglePhotorealistic3DTileset();
-        this.photorealTileset.maximumScreenSpaceError = 24;
+        this.photorealTileset.maximumScreenSpaceError = 32;
+        this.photorealTileset.maximumMemoryUsage = 512;
         this.photorealTileset.preloadFlightCamera = true;
         this.photorealTileset.dynamicScreenSpaceError = true;
         this.photorealTileset.dynamicScreenSpaceErrorDensity = 0.00278;
         this.photorealTileset.dynamicScreenSpaceErrorFactor = 4.0;
         this.photorealTileset.dynamicScreenSpaceErrorHeightFalloff = 0.25;
+        this.photorealTileset.skipLevelOfDetail = true;
+        this.photorealTileset.baseScreenSpaceError = 1024;
+        this.photorealTileset.skipScreenSpaceErrorFactor = 16;
+        this.photorealTileset.skipLevels = 1;
+        this.photorealTileset.immediatelyLoadDesiredLevelOfDetail = false;
+        this.photorealTileset.loadSiblings = false;
+        this.photorealTileset.cullWithChildrenBounds = true;
+        this.photorealTileset.show = false;
 
         this.viewer.scene.primitives.add(this.photorealTileset);
-        this.viewer.scene.globe.show = false;
-        photorealLoaded = true;
-        this.currentBasemap = '3d';
-        console.log('[IISN] Google 3D Photorealistic Tiles loaded successfully.');
+        console.log('[IISN] Google 3D Photorealistic Tiles initialized (ready on standby).');
       } catch (err) {
         console.warn('[IISN] Google Photorealistic 3D Tiles fallback:', err);
       }
@@ -192,20 +198,23 @@ class IISNApp {
           style: Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS
         });
         this.satelliteLayer = this.viewer.imageryLayers.addImageryProvider(bingAerial);
-        this.satelliteLayer.show = !photorealLoaded;
+        this.satelliteLayer.show = false;
       }
     } catch (e) {
       console.warn('[IISN] Bing satellite fallback:', e);
     }
 
     try {
-      // 1. Keyless Esri World Dark Gray Canvas (replaces Carto with no watermark)
+      // 1. Keyless Esri World Dark Gray Canvas (DEFAULT BASEMAP - Zero Tokens Needed, 60 FPS)
       const darkProv = new Cesium.UrlTemplateImageryProvider({
         url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
         credit: '© Esri, HERE, Garmin, © OpenStreetMap contributors'
       });
       this.darkLayer = this.viewer.imageryLayers.addImageryProvider(darkProv);
-      this.darkLayer.show = false;
+      this.darkLayer.show = true;
+    } catch (e) {
+      console.warn('[IISN] Dark layer fallback:', e);
+    }
     } catch (e) {
       console.warn('[IISN] Dark layer fallback:', e);
     }
@@ -483,7 +492,7 @@ class IISNApp {
       this.currentBasemap = 'dark';
     });
 
-    updateActive(btn3d);
+    updateActive(btnDark);
   }
 
   initAudioToggle() {

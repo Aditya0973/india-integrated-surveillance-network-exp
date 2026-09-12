@@ -138,38 +138,38 @@
     <div class="glass-panel" style="padding: 14px;">
       <div class="section-header">
         <span class="section-title">INTELLIGENCE LAYERS</span>
-        <span style="font-family: var(--font-mono); font-size: 10px; color: var(--brand-violet);" id="active-layers-label">7 ACTIVE</span>
+        <span style="font-family: var(--font-mono); font-size: 10px; color: var(--brand-violet);" id="active-layers-label">0 ACTIVE</span>
       </div>
       <div class="layer-chip-grid">
-        <div class="layer-chip active" data-layer="flights">
+        <div class="layer-chip" data-layer="flights">
           <span>3D Flights</span>
           <span class="layer-count" id="stat-flights">0</span>
         </div>
-        <div class="layer-chip active" data-layer="maritime">
+        <div class="layer-chip" data-layer="maritime">
           <span>3D Maritime</span>
           <span class="layer-count" id="stat-maritime">0</span>
         </div>
-        <div class="layer-chip active" data-layer="railways">
+        <div class="layer-chip" data-layer="railways">
           <span>Live Trains</span>
           <span class="layer-count" id="stat-trains">0</span>
         </div>
-        <div class="layer-chip active" data-layer="cctv">
+        <div class="layer-chip" data-layer="cctv">
           <span>CCTV Optical</span>
           <span class="layer-count" id="stat-cctv">32</span>
         </div>
-        <div class="layer-chip active" data-layer="isro">
+        <div class="layer-chip" data-layer="isro">
           <span>ISRO Space</span>
           <span class="layer-count">6</span>
         </div>
-        <div class="layer-chip active" data-layer="defense">
+        <div class="layer-chip" data-layer="defense">
           <span>Air Defense</span>
           <span class="layer-count">5</span>
         </div>
-        <div class="layer-chip active" data-layer="environmental">
+        <div class="layer-chip" data-layer="environmental">
           <span>AQI & Fires</span>
           <span class="layer-count" id="stat-env">11</span>
         </div>
-        <div class="layer-chip active" data-layer="traffic">
+        <div class="layer-chip" data-layer="traffic">
           <span>TomTom Traffic</span>
           <span class="layer-count">LIVE</span>
         </div>
@@ -386,10 +386,10 @@
 
     <!-- Basemap Switcher & Audio Controls (Moved to Bottom as Requested) -->
     <div class="basemap-dock">
-      <button class="sector-btn active" id="btn-map-3d">3D PHOTOREAL</button>
+      <button class="sector-btn" id="btn-map-3d">3D PHOTOREAL</button>
       <button class="sector-btn" id="btn-map-sat">SATELLITE</button>
       <button class="sector-btn" id="btn-map-road">ROAD MAP</button>
-      <button class="sector-btn" id="btn-map-dark">DARK TACTICAL</button>
+      <button class="sector-btn active" id="btn-map-dark">DARK TACTICAL</button>
       <button class="crafted-btn secondary" id="btn-sound-toggle" style="padding:4px 8px; font-size:10px;" title="Toggle Tactical Sounds">AUDIO: ON</button>
     </div>
   </footer>
@@ -618,7 +618,7 @@
               <span class="shortcut-key">CTRL + SCROLL</span>
             </div>
             <div class="shortcut-row">
-              <span class="legend-item-desc">Toggle Tactical HUD (Ghost Mode):</span>
+              <span class="legend-item-desc">Toggle Tactical HUD Overlay:</span>
               <span class="shortcut-key">SPACE / H</span>
             </div>
             <div class="shortcut-row">

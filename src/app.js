@@ -44,7 +44,7 @@ class IISNApp {
     this.trafficLayer = null;
     this.satelliteLayer = null;
     this.darkLayer = null;
-    this.currentBasemap = '3d';
+    this.currentBasemap = 'dark';
     this.selectedMaleVoice = null;
     this.availableVoices = [];
     this.hls = null;
@@ -63,17 +63,17 @@ class IISNApp {
     this.envEntities = [];
     this.routeEntities = [];
 
-    // State
+    // State (All layers OFF by default for clean start)
     this.currentState = 'Delhi';
     this.activeLayers = {
-      flights: true,
-      maritime: true,
-      cctv: true,
-      isro: true,
-      railways: true,
-      defense: true,
-      environmental: true,
-      traffic: true
+      flights: false,
+      maritime: false,
+      cctv: false,
+      isro: false,
+      railways: false,
+      defense: false,
+      environmental: false,
+      traffic: false
     };
   }
 
@@ -135,7 +135,7 @@ class IISNApp {
   }
 
   async initCesiumViewer() {
-    // 1. Initialize Cesium 3D Viewer
+    // 1. Initialize Cesium 3D Viewer with High Performance WebGL & Frame Capping
     this.viewer = new Cesium.Viewer('cesiumContainer', {
       baseLayerPicker: false,
       geocoder: false,
@@ -148,22 +148,44 @@ class IISNApp {
       infoBox: false,
       selectionIndicator: false,
       skyAtmosphere: new Cesium.SkyAtmosphere(),
+      targetFrameRate: 60,
+      useBrowserRecommendedResolution: true,
       contextOptions: {
-        webgl: { alpha: false, preserveDrawingBuffer: true }
+        webgl: {
+          alpha: false,
+          preserveDrawingBuffer: true,
+          powerPreference: "high-performance",
+          failIfMajorPerformanceCaveat: false
+        }
       }
     });
 
-    // 2. Load Google Photorealistic 3D Tiles via Cesium Ion Token
-    let photorealLoaded = false;
+    this.viewer.resolutionScale = window.devicePixelRatio > 1 ? Math.min(window.devicePixelRatio, 1.25) : 1.0;
+    this.viewer.scene.globe.show = true;
+
+    // 2. Load Google Photorealistic 3D Tiles via Cesium Ion Token with Aggressive 60 FPS LOD Optimizations
     if (this.config.cesiumToken) {
       try {
         console.log('[IISN] Initializing Google Photorealistic 3D Tiles...');
         this.photorealTileset = await Cesium.createGooglePhotorealistic3DTileset();
+        this.photorealTileset.maximumScreenSpaceError = 32;
+        this.photorealTileset.maximumMemoryUsage = 512;
+        this.photorealTileset.preloadFlightCamera = true;
+        this.photorealTileset.dynamicScreenSpaceError = true;
+        this.photorealTileset.dynamicScreenSpaceErrorDensity = 0.00278;
+        this.photorealTileset.dynamicScreenSpaceErrorFactor = 4.0;
+        this.photorealTileset.dynamicScreenSpaceErrorHeightFalloff = 0.25;
+        this.photorealTileset.skipLevelOfDetail = true;
+        this.photorealTileset.baseScreenSpaceError = 1024;
+        this.photorealTileset.skipScreenSpaceErrorFactor = 16;
+        this.photorealTileset.skipLevels = 1;
+        this.photorealTileset.immediatelyLoadDesiredLevelOfDetail = false;
+        this.photorealTileset.loadSiblings = false;
+        this.photorealTileset.cullWithChildrenBounds = true;
+        this.photorealTileset.show = false;
+
         this.viewer.scene.primitives.add(this.photorealTileset);
-        this.viewer.scene.globe.show = false;
-        photorealLoaded = true;
-        this.currentBasemap = '3d';
-        console.log('[IISN] Google 3D Photorealistic Tiles loaded successfully.');
+        console.log('[IISN] Google 3D Photorealistic Tiles initialized (ready on standby).');
       } catch (err) {
         console.warn('[IISN] Google Photorealistic 3D Tiles fallback:', err);
       }
@@ -176,20 +198,23 @@ class IISNApp {
           style: Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS
         });
         this.satelliteLayer = this.viewer.imageryLayers.addImageryProvider(bingAerial);
-        this.satelliteLayer.show = !photorealLoaded;
+        this.satelliteLayer.show = false;
       }
     } catch (e) {
       console.warn('[IISN] Bing satellite fallback:', e);
     }
 
     try {
-      // 1. Keyless Esri World Dark Gray Canvas (replaces Carto with no watermark)
+      // 1. Keyless Esri World Dark Gray Canvas (DEFAULT BASEMAP - Zero Tokens Needed, 60 FPS)
       const darkProv = new Cesium.UrlTemplateImageryProvider({
         url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
         credit: '© Esri, HERE, Garmin, © OpenStreetMap contributors'
       });
       this.darkLayer = this.viewer.imageryLayers.addImageryProvider(darkProv);
-      this.darkLayer.show = false;
+      this.darkLayer.show = true;
+    } catch (e) {
+      console.warn('[IISN] Dark layer fallback:', e);
+    }
     } catch (e) {
       console.warn('[IISN] Dark layer fallback:', e);
     }
@@ -467,7 +492,7 @@ class IISNApp {
       this.currentBasemap = 'dark';
     });
 
-    updateActive(btn3d);
+    updateActive(btnDark);
   }
 
   initAudioToggle() {
@@ -490,27 +515,29 @@ class IISNApp {
       if (!data || !data.flights) return;
 
       const currentIcaos = new Set();
+      const isVisible = Boolean(this.activeLayers.flights);
 
       data.flights.forEach(f => {
         currentIcaos.add(f.icao24);
         const position = Cesium.Cartesian3.fromDegrees(f.lon, f.lat, f.altitudeM || 1000);
         const isMil = f.type === 'military';
         const colorHex = isMil ? '#EF4444' : '#38BDF8';
+        const rot = -Cesium.Math.toRadians(f.heading || 0);
 
         if (this.flightEntities.has(f.icao24)) {
           const entity = this.flightEntities.get(f.icao24);
           entity.position = position;
           entity.customData = f;
+          if (entity.billboard) entity.billboard.rotation = rot;
+          entity.show = isVisible;
         } else {
           const entity = this.viewer.entities.add({
             name: f.callsign,
+            show: isVisible,
             position,
             billboard: {
               image: createAircraftSvg(colorHex, isMil),
-              rotation: new Cesium.CallbackProperty(() => {
-                const pos = entity.position.getValue(this.viewer.clock.currentTime);
-                return screenProjectedRotation(this.viewer.scene, pos, entity.customData?.heading || 0);
-              }, false),
+              rotation: rot,
               alignedAxis: Cesium.Cartesian3.ZERO,
               width: isMil ? 28 : 24,
               height: isMil ? 28 : 24,
@@ -554,8 +581,10 @@ class IISNApp {
           if (this.flightTrailEntities.has(f.icao24)) {
             const trail = this.flightTrailEntities.get(f.icao24);
             trail.polyline.positions = Cesium.Cartesian3.fromDegreesArrayHeights(flatPoints);
+            trail.show = isVisible;
           } else {
             const trail = this.viewer.entities.add({
+              show: isVisible,
               polyline: {
                 positions: Cesium.Cartesian3.fromDegreesArrayHeights(flatPoints),
                 width: 2.8,
@@ -603,21 +632,21 @@ class IISNApp {
 
       this.marineEntities.forEach(ent => this.viewer.entities.remove(ent));
       this.marineEntities.clear();
+      const isVisible = Boolean(this.activeLayers.maritime);
 
       data.vessels.forEach(v => {
         const pos = Cesium.Cartesian3.fromDegrees(v.lon, v.lat, 10);
         const isMil = v.isMilitary;
         const colorHex = isMil ? '#D45B3E' : '#00FF88';
+        const rot = -Cesium.Math.toRadians(v.heading || 0);
 
         const ent = this.viewer.entities.add({
           name: v.name,
+          show: isVisible,
           position: pos,
           billboard: {
             image: createShipSvg(colorHex),
-            rotation: new Cesium.CallbackProperty(() => {
-              const p = ent.position.getValue(this.viewer.clock.currentTime);
-              return screenProjectedRotation(this.viewer.scene, p, ent.customData?.heading || 0);
-            }, false),
+            rotation: rot,
             alignedAxis: Cesium.Cartesian3.ZERO,
             width: 20,
             height: 20,
@@ -676,15 +705,19 @@ class IISNApp {
       if (!data || !data.trains) return;
 
       const currentIds = new Set();
+      const isVisible = Boolean(this.activeLayers.railways);
 
       data.trains.forEach(t => {
         currentIds.add(t.id);
         const pos = Cesium.Cartesian3.fromDegrees(t.lon, t.lat, 20);
+        const rot = -Cesium.Math.toRadians(t.heading || 0);
 
         if (this.trainEntities.has(t.id)) {
           const ent = this.trainEntities.get(t.id);
           ent.position = pos;
           ent.customData = t;
+          if (ent.billboard) ent.billboard.rotation = rot;
+          ent.show = isVisible;
         } else {
           const isVandeBharat = t.name.includes('Vande Bharat');
           const isRajdhani = t.name.includes('Rajdhani');
@@ -692,13 +725,11 @@ class IISNApp {
 
           const ent = this.viewer.entities.add({
             name: `${t.trainNo} ${t.name}`,
+            show: isVisible,
             position: pos,
             billboard: {
               image: createTrainSvg(trainColor),
-              rotation: new Cesium.CallbackProperty(() => {
-                const p = ent.position.getValue(this.viewer.clock.currentTime);
-                return screenProjectedRotation(this.viewer.scene, p, ent.customData?.heading || 0);
-              }, false),
+              rotation: rot,
               alignedAxis: Cesium.Cartesian3.ZERO,
               width: 22,
               height: 22,
@@ -760,12 +791,14 @@ class IISNApp {
       this.cctvFrustumEntities.forEach(e => this.viewer.entities.remove(e));
       this.cctvEntities = [];
       this.cctvFrustumEntities = [];
+      const isVisible = Boolean(this.activeLayers.cctv);
 
       data.cameras.forEach(cam => {
         const pos = Cesium.Cartesian3.fromDegrees(cam.lon, cam.lat, cam.elevationM || 20);
 
         const camEnt = this.viewer.entities.add({
           name: `[CAM] ${cam.name}`,
+          show: isVisible,
           position: pos,
           point: {
             pixelSize: 10,
@@ -808,7 +841,10 @@ class IISNApp {
 
         // 3D Viewing Frustum
         const frustum = this.createCctvFrustum(cam);
-        if (frustum) this.cctvFrustumEntities.push(frustum);
+        if (frustum) {
+          frustum.show = isVisible;
+          this.cctvFrustumEntities.push(frustum);
+        }
       });
 
       const stat = document.getElementById('stat-cctv');
@@ -842,6 +878,7 @@ class IISNApp {
       wireframePositions.push(endPositions[Math.floor(steps / 2)]);
 
       return this.viewer.entities.add({
+        show: Boolean(this.activeLayers.cctv),
         polyline: {
           positions: wireframePositions,
           width: 1.5,
@@ -862,6 +899,7 @@ class IISNApp {
 
       this.defenseEntities.forEach(e => this.viewer.entities.remove(e));
       this.defenseEntities = [];
+      const isVisible = Boolean(this.activeLayers.defense);
 
       // Command Sectors
       if (data.sectors) {
@@ -871,6 +909,7 @@ class IISNApp {
 
           const ent = this.viewer.entities.add({
             name: sec.name,
+            show: isVisible,
             polygon: {
               hierarchy: Cesium.Cartesian3.fromDegreesArray(flatCoords),
               material: Cesium.Color.fromCssColorString(sec.color).withAlpha(0.12),
@@ -890,6 +929,7 @@ class IISNApp {
           const pos = Cesium.Cartesian3.fromDegrees(base.lon, base.lat, 100);
           const ent = this.viewer.entities.add({
             name: base.name,
+            show: isVisible,
             position: pos,
             point: {
               pixelSize: 8,
@@ -944,6 +984,7 @@ class IISNApp {
 
       this.railwayEntities.forEach(e => this.viewer.entities.remove(e));
       this.railwayEntities = [];
+      const isVisible = Boolean(this.activeLayers.railways);
 
       if (data.corridors) {
         data.corridors.forEach(corr => {
@@ -952,6 +993,7 @@ class IISNApp {
 
           const ent = this.viewer.entities.add({
             name: corr.name,
+            show: isVisible,
             polyline: {
               positions: Cesium.Cartesian3.fromDegreesArrayHeights(flat),
               width: 3.0,
@@ -967,6 +1009,7 @@ class IISNApp {
         data.junctions.forEach(j => {
           const ent = this.viewer.entities.add({
             name: j.name,
+            show: isVisible,
             position: Cesium.Cartesian3.fromDegrees(j.lon, j.lat, 40),
             point: {
               pixelSize: 6,
@@ -1019,11 +1062,13 @@ class IISNApp {
 
       this.isroEntities.forEach(e => this.viewer.entities.remove(e));
       this.isroEntities = [];
+      const isVisible = Boolean(this.activeLayers.isro);
 
       if (data.launchCentres) {
         data.launchCentres.forEach(c => {
           const ent = this.viewer.entities.add({
             name: c.name,
+            show: isVisible,
             position: Cesium.Cartesian3.fromDegrees(c.lon, c.lat, 100),
             point: {
               pixelSize: 10,
@@ -1073,6 +1118,7 @@ class IISNApp {
 
             const orbitEnt = this.viewer.entities.add({
               name: `${m.name} Orbit Path`,
+              show: isVisible,
               polyline: {
                 positions: Cesium.Cartesian3.fromDegreesArrayHeights(flat),
                 width: 1.8,
@@ -1091,6 +1137,7 @@ class IISNApp {
           const satAltM = Math.min(pos.altMeters || (m.orbitAltKm * 1000), 2500000);
           const satEntity = this.viewer.entities.add({
             name: m.name,
+            show: isVisible,
             position: Cesium.Cartesian3.fromDegrees(pos.lon, pos.lat, satAltM),
             point: {
               pixelSize: 10,
@@ -1142,11 +1189,13 @@ class IISNApp {
 
       this.envEntities.forEach(e => this.viewer.entities.remove(e));
       this.envEntities = [];
+      const isVisible = Boolean(this.activeLayers.environmental);
 
       if (data.aqi) {
         data.aqi.forEach(a => {
           const ent = this.viewer.entities.add({
             name: `AQI: ${a.city}`,
+            show: isVisible,
             position: Cesium.Cartesian3.fromDegrees(a.lon, a.lat, 80),
             point: {
               pixelSize: 7,
@@ -1192,6 +1241,7 @@ class IISNApp {
         data.fires.forEach(f => {
           const ent = this.viewer.entities.add({
             name: f.region,
+            show: isVisible,
             position: Cesium.Cartesian3.fromDegrees(f.lon, f.lat, 80),
             point: {
               pixelSize: 8,
