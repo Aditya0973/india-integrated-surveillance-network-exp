@@ -4,8 +4,7 @@
 [![Status](https://img.shields.io/badge/Status-Operational-brightgreen.svg?style=flat-square)]()
 [![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Linux-blue.svg?style=flat-square)]()
 [![CesiumJS](https://img.shields.io/badge/Engine-CesiumJS%203D-orange.svg?style=flat-square)]()
-[![License](https://img.shields.io/badge/License-MIT-purple.svg?style=flat-square)]()
-[![Zero-Key](https://img.shields.io/badge/Keys-Zero%20Config%20Required-success.svg?style=flat-square)]()
+[![Keys](https://img.shields.io/badge/Setup-Free%20API%20Keys%20Supported-blue.svg?style=flat-square)]()
 
 > *Inspired by the concept of [**God's Eye View**](https://github.com/bilawalsidhu/gods-eye-view) by Bilawal Sidhu — re-engineered and specialized for high-precision 3D surveillance, airspace tracking, railway telemetry, maritime monitoring, ISRO orbital propagation, and national situational awareness across the Indian Subcontinent.*
 
@@ -35,7 +34,6 @@ The **India Integrated Surveillance Network (IISN)** is an integrated, web-nativ
 ### Key Capabilities at a Glance:
 * **Multi-Domain Common Operating Picture (COP)**: Integrates aviation, railways, maritime vessels, space assets, traffic, weather, and environmental sensors into a unified coordinate system.
 * **Zero-Lag 60 FPS Performance**: Optimized WebGL rendering with smart camera-distance Level of Detail (LOD), viewport culling, and entity clustering.
-* **Keyless Out-of-the-Box Operation**: Fully functional immediately upon launch without requiring third-party API tokens.
 * **Tactical AI Copilot & Voice Dispatch**: Natural language intelligence query assistant paired with voice dispatch and procedural military-grade radio sound effects.
 * **First-Person 3D Chase Mode**: Lock onto any active aircraft, train, or vessel and ride along in a dynamic third-person or cockpit follow camera.
 
@@ -56,7 +54,7 @@ graph TD
 
 ### 1. 3D WebGL Geospatial Rendering Engine
 * Powered by **CesiumJS**, rendering the Earth as an accurate WGS84 ellipsoid.
-* Default basemap utilizes **Esri World Dark Canvas** for high-contrast tactical readability with zero API key dependencies.
+* Default basemap utilizes **Esri World Dark Canvas** for high-contrast tactical readability with instant loading.
 * Supports seamless 1-click elevation toggles to **Bing Satellite Imagery** and **Google Photorealistic 3D 3D-Tiles** via Cesium Ion.
 
 ### 2. Multi-Source Telemetry Ingestion & Proxy Layer
@@ -88,6 +86,30 @@ graph TD
 
 ---
 
+## 🔑 API Keys & Configuration
+
+IISN is designed to work immediately on the default **Dark Tactical Canvas** with baseline features, while providing full integration with external live APIs for advanced photorealism, custom routing, and air quality telemetry.
+
+To unlock all high-resolution external data providers, obtain free API keys from the respective services and add them to your `.env` file or enter them directly inside the in-app **`[ ⚙ CONFIG ]`** panel:
+
+| Service / Layer | Environment Variable | Purpose | Free Key Registration Link |
+|:---|:---|:---|:---|
+| **Cesium Ion** | `CESIUM_ION_TOKEN` | Enables Bing Satellite Imagery, Google Photorealistic 3D Tiles, and global 3D terrain elevation mesh. | [ion.cesium.com](https://ion.cesium.com/signup) |
+| **TomTom Routing & Traffic** | `TOMTOM_API_KEY` | High-precision road routing engine, turn-by-turn waypoint calculation, geocoding, and real-time road traffic incident feeds. | [developer.tomtom.com](https://developer.tomtom.com/) |
+| **WAQI Air Quality Index** | `WAQI_TOKEN` | Live city & station-level ambient Air Quality Index (AQI), PM2.5, PM10, and atmospheric pollution monitoring across India. | [aqicn.org/data-platform/token](https://aqicn.org/data-platform/token/) |
+| **AISStream Maritime** | `AISSTREAM_API_KEY` | Live WebSocket stream for real-time commercial vessel transponders, oil tankers, and coastal maritime positioning. | [aisstream.io](https://aisstream.io/) |
+| **OpenSky Network** | `OPENSKY_USERNAME` / `OPENSKY_PASSWORD` | Optional dedicated account credentials to remove anonymous rate limits on global and Indian ADS-B airspace feeds. | [opensky-network.org](https://opensky-network.org/) |
+
+> **Tip:** You can create a `.env` file in the project root based on `.env.example`:
+> ```env
+> CESIUM_ION_TOKEN=your_cesium_ion_token_here
+> TOMTOM_API_KEY=your_tomtom_api_key_here
+> WAQI_TOKEN=your_waqi_token_here
+> AISSTREAM_API_KEY=your_aisstream_api_key_here
+> ```
+
+---
+
 ## 🚀 Quick Start & 1-Click Launch
 
 ### Windows 1-Click Batch Run (Recommended)
@@ -113,22 +135,13 @@ Open your browser and navigate to **`http://localhost:5200`**.
 
 ---
 
-## 🌟 Keyless Out-of-the-Box Operation
-
-IISN is engineered to work **100% out of the box with zero required API keys**:
-* **Default Basemap**: Launches on the high-contrast **Esri World Dark Tactical Canvas** with no token requirements, rock-solid 60 FPS, and instantaneous loading.
-* **Instant Cloud / Vercel Access**: Anyone visiting your deployed URL immediately gets the complete 3D interactive globe with live telemetry without needing to input API credentials.
-* **Optional Enhancements**: You can optionally configure a free Cesium Ion token or TomTom key in **`[ ⚙ CONFIG ]`** to unlock high-res Bing Satellite, Google 3D Tiles, or custom routing profiles.
-
----
-
 ## 🌐 Deploying to Vercel (Web Deployment)
 
 IISN includes native Vercel serverless configurations (`vercel.json` and `api/index.js`):
 
 1. Fork or push this repository to your GitHub account.
 2. Import the project into [Vercel](https://vercel.com).
-3. (Optional) Set your Environment Variables (`CESIUM_ION_TOKEN`, `TOMTOM_API_KEY`, etc.) in the Vercel Project Settings.
+3. Set your Environment Variables (`CESIUM_ION_TOKEN`, `TOMTOM_API_KEY`, `WAQI_TOKEN`, etc.) in the Vercel Project Settings.
 4. Click **Deploy**!
 
 ---
@@ -152,7 +165,7 @@ IISN includes native Vercel serverless configurations (`vercel.json` and `api/in
 
 * **No Hardcoded Credentials**: All API tokens and tactical configurations are loaded dynamically via environment variables (`.env`) or local runtime storage.
 * **Zero Telemetry Leakage**: Client queries stay local or route through the secure proxy layer without third-party tracking.
-* **Open Source & Extensible**: Modular architecture allows rapid integration of custom GeoJSON layers, proprietary drone telemetry feeds, or local sensor grids.
+* **Open & Extensible**: Modular architecture allows rapid integration of custom GeoJSON layers, proprietary drone telemetry feeds, or local sensor grids.
 
 ---
 
