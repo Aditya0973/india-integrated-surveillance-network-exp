@@ -24,6 +24,7 @@
     "files": [
       "main-electron.cjs",
       "src/**/*",
+      "public/**/*",
       "server/**/*",
       "package.json"
     ]

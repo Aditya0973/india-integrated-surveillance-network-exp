@@ -41,7 +41,10 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:7b";
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'src')));
+const staticDir = fs.existsSync(path.join(__dirname, '..', 'public'))
+  ? path.join(__dirname, '..', 'public')
+  : path.join(__dirname, '..', 'src');
+app.use(express.static(staticDir));
 
 // Expose public tokens/config to frontend
 app.get('/api/config', (req, res) => {
@@ -1768,12 +1771,16 @@ Guidelines:
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`=======================================================`);
-  console.log(`🇮🇳 INDIA INTEGRATED SURVEILLANCE NETWORK (IISN)`);
-  console.log(`   Configured with Cesium Ion, AISStream, TomTom,`);
-  console.log(`   NASA FIRMS, WAQI & Local Ollama (${OLLAMA_MODEL})`);
-  console.log(`=======================================================`);
-  console.log(`🚀 IISN Console running at: http://localhost:${PORT}`);
-  console.log(`=======================================================`);
-});
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`=======================================================`);
+    console.log(`🇮🇳 INDIA INTEGRATED SURVEILLANCE NETWORK (IISN)`);
+    console.log(`   Configured with Cesium Ion, AISStream, TomTom,`);
+    console.log(`   NASA FIRMS, WAQI & Local Ollama (${OLLAMA_MODEL})`);
+    console.log(`=======================================================`);
+    console.log(`🚀 IISN Console running at: http://localhost:${PORT}`);
+    console.log(`=======================================================`);
+  });
+}
+
+export default app;

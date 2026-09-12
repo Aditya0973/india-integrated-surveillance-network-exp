@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>INDIA INTEGRATED SURVEILLANCE NETWORK // IISN</title>
+  
+  <!-- CesiumJS CSS -->
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.124/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <!-- Google Fonts: Geist & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;600;700&family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- HLS.js for All India Radio and live media streams -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <!-- Crafted Co. Design System Stylesheet -->
+  <link rel="stylesheet" href="styles/crafted-theme.css">
+</head>
+<body>
+  <!-- 3D Cesium Viewport Container -->
+  <div id="cesiumContainer"></div>
+
+  <!-- Cockpit & Target Tracking HUD Banner -->
+  <div id="cockpit-banner" class="cockpit-hud-banner" style="display: none;">
+    <div class="cockpit-hud-content">
+      <span class="cockpit-indicator">● LIVE TARGET CHASE ACTIVE</span>
+      <span id="hud-target-name" class="cockpit-callsign">SELECT TARGET</span>
+      <span class="hud-stat">SPEED: <strong id="hud-speed">0</strong> KM/H</span>
+      <span class="hud-stat">ALT: <strong id="hud-alt">0</strong> FT</span>
+      <span class="hud-stat">HDG: <strong id="hud-heading">000°</strong></span>
+      <button id="exit-cockpit-btn" class="crafted-btn secondary" style="padding: 3px 10px; font-size: 10px; margin-left: 10px;">EXIT CHASE</button>
+    </div>
+  </div>
+
+  <!-- Top Navigation Bar -->
+  <header class="top-nav">
+    <!-- Brand Emblem & Clock -->
+    <div class="glass-panel brand-card">
+      <div class="brand-emblem" style="background: transparent; border: 1px solid rgba(56, 189, 248, 0.4); overflow: hidden; padding: 1px;">
+        <img src="assets/logo.png" alt="IISN Emblem" style="width: 100%; height: 100%; border-radius: 4px; object-fit: cover;">
+      </div>
+      <div class="brand-text">
+        <h1>IISN // INDIA INTEGRATED SURVEILLANCE NETWORK</h1>
+        <p>INTEGRATED AIRSPACE · MARITIME · ISRO · RAILWAYS · DEFENSE · CCTV</p>
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; color: var(--status-green); display:flex; align-items:center; gap:6px; margin-left: 12px;">
+        <span style="width:7px; height:7px; border-radius:50%; background:var(--status-green); box-shadow:0 0 8px var(--status-green);"></span>
+        <span id="live-ist-clock">00:00:00 IST</span>
+      </div>
+    </div>
+
+    <!-- Omni-Search Bar with Category Tabs and Live Dropdown -->
+    <div class="glass-panel omni-search-container" id="omni-search-wrapper">
+      <div class="omni-search-tabs">
+        <button class="search-tab active" data-cat="all">ALL</button>
+        <button class="search-tab" data-cat="places">PLACES</button>
+        <button class="search-tab" data-cat="trains">TRAINS</button>
+        <button class="search-tab" data-cat="flights">FLIGHTS</button>
+      </div>
+      <div class="omni-search-input-row">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted); flex-shrink:0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="omni-search-input" class="omni-search-field" placeholder="Search places, train (22436), flight (AI101)..." autocomplete="off">
+        <button class="crafted-btn" id="omni-search-btn" style="padding: 4px 10px; font-size: 10px;">FIND</button>
+      </div>
+      <div id="omni-suggestions" class="omni-suggestions-dropdown" style="display: none;"></div>
+    </div>
+
+    <!-- Top Right Breaking News Ticker Card -->
+    <div class="glass-panel news-ticker-card" id="news-card" title="Click to view breaking intelligence article">
+      <span class="news-badge">LIVE NEWS</span>
+      <div class="news-marquee-wrap">
+        <span class="news-headline" id="news-text">Connecting to live Indian defense, railway and space telemetry feeds...</span>
+      </div>
+    </div>
+
+    <!-- Tactical Settings Modal Button -->
+    <button class="glass-panel hud-toggle-btn" id="btn-settings" title="Tactical Settings & Custom API Keys Configuration">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+
+    <!-- HUD Toggle Eye Button -->
+    <button class="glass-panel hud-toggle-btn" id="btn-toggle-hud" title="Toggle Clean View (Hide/Show UI controls)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+  </header>
+
+  <!-- Tactical Emergency Disaster & Hazard Alert Banner -->
+  <div id="tactical-hazard-banner" class="tactical-hazard-banner" style="display: none;">
+    <div class="hazard-banner-content">
+      <span class="hazard-pulse-icon">⚠️</span>
+      <span class="hazard-severity-badge" id="hazard-severity">CRITICAL HAZARD</span>
+      <div class="hazard-text-block">
+        <strong id="hazard-title">CYCLONIC CIRCULATION / HIGH SEA ADVISORY</strong>
+        <span class="hazard-location" id="hazard-loc">Bay of Bengal Coast</span>
+      </div>
+      <p id="hazard-desc" class="hazard-desc">Intense depression with gusts up to 85 km/h.</p>
+      <button id="btn-fly-hazard" class="crafted-btn hazard-fly-btn">FLY TO HAZARD</button>
+      <button id="btn-dismiss-hazard" class="hazard-close-btn" title="Dismiss Alert">✕</button>
+    </div>
+  </div>
+
+  <!-- 3D Tactical Route Planner HUD Banner -->
+  <div id="route-planner-hud" class="route-planner-hud" style="display: none;">
+    <div class="route-hud-header">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="pulse-dot" style="background: #00F2FE;"></span>
+        <span class="route-hud-title">3D ROUTE TRAJECTORY</span>
+      </div>
+      <button id="btn-close-route" class="hazard-close-btn" title="Cancel Route">✕</button>
+    </div>
+    <div class="route-endpoints">
+      <span id="route-orig-label">Origin</span> <span style="color: #00F2FE;">➔</span> <span id="route-dest-label">Destination</span>
+    </div>
+    <div class="route-metrics">
+      <div class="route-metric-item">
+        <span class="metric-label">DISTANCE</span>
+        <strong class="metric-val" id="route-dist-val">— KM</strong>
+      </div>
+      <div class="route-metric-item">
+        <span class="metric-label">EST. TRANSIT</span>
+        <strong class="metric-val" id="route-time-val">—</strong>
+      </div>
+    </div>
+    <div class="route-hud-actions">
+      <a id="route-gmaps-link" href="#" target="_blank" class="crafted-btn" style="text-decoration: none; font-size: 10px; padding: 5px 12px; display: inline-flex; align-items: center; gap: 6px;">
+        <span>OPEN IN GOOGLE MAPS</span> ↗
+      </a>
+      <button id="btn-cancel-route" class="crafted-btn secondary" style="font-size: 10px; padding: 5px 12px;">CLEAR</button>
+    </div>
+  </div>
+
+  <!-- Left Sidebar: Intelligence Layers & Strategic Sectors -->
+  <aside class="left-rail" id="left-rail">
+    <!-- Active Layers Matrix -->
+    <div class="glass-panel" style="padding: 14px;">
+      <div class="section-header">
+        <span class="section-title">INTELLIGENCE LAYERS</span>
+        <span style="font-family: var(--font-mono); font-size: 10px; color: var(--brand-violet);" id="active-layers-label">0 ACTIVE</span>
+      </div>
+      <div class="layer-chip-grid">
+        <div class="layer-chip" data-layer="flights">
+          <span>3D Flights</span>
+          <span class="layer-count" id="stat-flights">0</span>
+        </div>
+        <div class="layer-chip" data-layer="maritime">
+          <span>3D Maritime</span>
+          <span class="layer-count" id="stat-maritime">0</span>
+        </div>
+        <div class="layer-chip" data-layer="railways">
+          <span>Live Trains</span>
+          <span class="layer-count" id="stat-trains">0</span>
+        </div>
+        <div class="layer-chip" data-layer="cctv">
+          <span>CCTV Optical</span>
+          <span class="layer-count" id="stat-cctv">32</span>
+        </div>
+        <div class="layer-chip" data-layer="isro">
+          <span>ISRO Space</span>
+          <span class="layer-count">6</span>
+        </div>
+        <div class="layer-chip" data-layer="defense">
+          <span>Air Defense</span>
+          <span class="layer-count">5</span>
+        </div>
+        <div class="layer-chip" data-layer="environmental">
+          <span>AQI & Fires</span>
+          <span class="layer-count" id="stat-env">11</span>
+        </div>
+        <div class="layer-chip" data-layer="traffic">
+          <span>TomTom Traffic</span>
+          <span class="layer-count">LIVE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Strategic Sectors -->
+    <div class="glass-panel" style="padding: 14px;">
+      <div class="section-header">
+        <span class="section-title">STRATEGIC COMMANDS</span>
+      </div>
+      <div class="sector-btn-wrap">
+        <button class="sector-btn" data-lat="28.6139" data-lon="77.2090" data-height="250000">Western Air Command (Delhi)</button>
+        <button class="sector-btn" data-lat="19.0760" data-lon="72.8777" data-height="200000">SWAC / Mumbai Fleet</button>
+        <button class="sector-btn" data-lat="13.7199" data-lon="80.2305" data-height="80000">Sriharikota (SDSC-SHAR)</button>
+        <button class="sector-btn" data-lat="34.1359" data-lon="77.5465" data-height="120000">Northern Sector (Leh/Ladakh)</button>
+        <button class="sector-btn" data-lat="26.7039" data-lon="89.3694" data-height="150000">Eastern Vector (Hasimara)</button>
+        <button class="sector-btn" data-lat="11.0142" data-lon="77.1611" data-height="180000">Southern Sector (Sulur)</button>
+        <button class="sector-btn" data-lat="22.0000" data-lon="80.0000" data-height="3500000">Reset All India</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Right Sidebar: 3D Target Inspector & Ollama Voice Assistant -->
+  <aside class="right-rail" id="right-rail">
+    <!-- Target Telemetry Card -->
+    <div class="glass-panel" style="padding: 14px;">
+      <div class="section-header">
+        <span class="section-title">TARGET TELEMETRY</span>
+        <span style="font-family: var(--font-mono); font-size: 10px; color: var(--status-green);" id="target-status">STANDBY</span>
+      </div>
+      <div>
+        <div class="telemetry-row">
+          <span class="telemetry-k">CALLSIGN / ID:</span>
+          <span class="telemetry-v accent" id="t-callsign">SELECT ANY ASSET</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-k">OPERATOR:</span>
+          <span class="telemetry-v" id="t-operator">—</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-k">CORRIDOR / ROUTE:</span>
+          <span class="telemetry-v" id="t-route">—</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-k">ALTITUDE:</span>
+          <span class="telemetry-v" id="t-alt">—</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-k">SPEED:</span>
+          <span class="telemetry-v" id="t-speed">—</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-k">HEADING:</span>
+          <span class="telemetry-v" id="t-heading">—</span>
+        </div>
+      <!-- Asset Visual Recon Photo Preview Card -->
+      <div id="asset-preview-card" class="asset-preview-box" style="display: none; margin-bottom: 12px;">
+        <div class="asset-preview-frame">
+          <img id="asset-photo-img" src="" alt="Asset Visual Recon" style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px; display: block;">
+          <div id="asset-shimmer-loader" class="asset-shimmer-loading" style="display: none;">
+            <span>FETCHING AUTHENTIC RECON...</span>
+          </div>
+          <div id="asset-photo-placeholder" class="no-recon-placeholder" style="display: none;">
+            <div style="font-size:16px; margin-bottom:4px;">📡</div>
+            <div style="font-weight:700; letter-spacing:1px; color:rgba(255,255,255,0.75);">[ NO RECON IMAGERY ]</div>
+            <div style="font-size:9px; color:rgba(255,255,255,0.4); margin-top:2px;">NO VERIFIED VISUAL RECORD IN RECON ARCHIVE</div>
+          </div>
+          <div class="asset-photo-overlay">
+            <span class="asset-model-tag" id="asset-model-tag">ASSET RECON</span>
+            <span class="asset-status-pill" id="asset-status-pill">● LIVE TRACK</span>
+          </div>
+          <div class="recon-crosshair tl"></div>
+          <div class="recon-crosshair tr"></div>
+          <div class="recon-crosshair bl"></div>
+          <div class="recon-crosshair br"></div>
+        </div>
+      </div>
+
+      <div class="action-btn-row">
+        <button class="crafted-btn" id="cockpit-btn" style="flex: 1;">CHASE</button>
+        <button class="crafted-btn secondary" id="track-lock-btn" style="flex: 1;">LOCK CAMERA</button>
+      </div>
+    </div>
+
+    <!-- CCTV Camera Optical Feed Card -->
+    <div class="glass-panel" id="cctv-preview-card" style="padding: 14px; display: none;">
+      <div class="section-header">
+        <span class="section-title">OPTICAL SENSOR // CCTV</span>
+        <span style="font-family: var(--font-mono); font-size: 9px; color: var(--status-green);" id="cctv-status">ONLINE SENSOR</span>
+      </div>
+      <div style="font-size: 12px; font-weight: 700; color: var(--text-main); margin-bottom: 2px;" id="cctv-name">India Gate Central Axis</div>
+      <div style="font-size: 10px; color: var(--brand-violet); margin-bottom: 8px;" id="cctv-meta">Delhi NCR · 280° AZIMUTH · FOV 72°</div>
+      <div style="position: relative; width: 100%; height: 130px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-subtle); margin-bottom: 8px;">
+        <img id="cctv-img" src="" alt="CCTV Stream" style="width: 100%; height: 100%; object-fit: cover; filter: contrast(1.1) brightness(0.95);">
+        <div style="position: absolute; top: 6px; left: 8px; font-family: var(--font-mono); font-size: 9px; background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px; color: #FFF;">
+          <span style="color: var(--status-red);">●</span> OPTICAL CAPTURE
+        </div>
+      </div>
+      <div style="font-size: 10px; color: var(--text-muted); line-height: 1.35; margin-bottom: 8px;" id="cctv-desc">Periodic municipal sensor snapshot.</div>
+      <button class="crafted-btn secondary" id="cctv-close-btn" style="width: 100%; justify-content: center; font-size: 10px; padding: 4px;">CLOSE CAMERA FEED</button>
+    </div>
+
+    <!-- Local Ollama (Qwen) AI Tactical Assistant -->
+    <div class="glass-panel" style="padding: 14px;">
+      <div class="section-header">
+        <span class="section-title">TACTICAL AI (OLLAMA / QWEN)</span>
+        <span style="font-family: var(--font-mono); font-size: 9px; color: var(--brand-violet);">LOCAL</span>
+      </div>
+      <div class="ai-input-wrap">
+        <input type="text" id="ai-input" class="ai-input-field" placeholder="e.g. 'Where am I?' or 'Take me to Ladakh'...">
+        <button class="ai-mic-btn" id="ai-mic-btn" title="Speak directive">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <button class="crafted-btn" id="ai-send-btn" style="flex:0; padding:0 12px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+      <!-- Tactical Voice & Recording Waveform Indicator -->
+      <div id="ai-listening-indicator" class="ai-listening-bar" style="display: none;">
+        <span class="pulse-dot"></span>
+        <span style="font-family: var(--font-mono); font-size: 10px; color: var(--status-red); font-weight:700;">LISTENING...</span>
+        <div class="audio-wave">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="ai-speech-bubble" id="ai-response-box">
+        IISN Tactical Assistant ready (Voice: Microsoft Ravi). State your directive or ask "Where am I?".
+      </div>
+    </div>
+  </aside>
+
+  <!-- Live Camera Telemetry & Mini Compass Cluster HUD -->
+  <div class="telemetry-hud-cluster glass-panel" id="telemetry-hud-cluster">
+    <!-- Mini Rotating Compass Instrument -->
+    <div class="compass-instrument" id="compass-instrument" title="Click to align True North (000°)">
+      <div class="compass-dial" id="compass-dial">
+        <span class="compass-marker north">N</span>
+        <span class="compass-marker east">E</span>
+        <span class="compass-marker south">S</span>
+        <span class="compass-marker west">W</span>
+        <div class="compass-needle"></div>
+      </div>
+      <div class="compass-heading-label" id="hud-heading-val">000° N</div>
+    </div>
+
+    <!-- Altitude Meter Gauge & Flight Observation Regime -->
+    <div class="altitude-gauge-cluster">
+      <div class="regime-badge" id="hud-regime-badge">TACTICAL RECON</div>
+      <div class="alt-meter-row">
+        <span class="alt-label">ALT:</span>
+        <strong class="alt-val" id="hud-alt-m">2,450 M</strong>
+        <span class="alt-sub" id="hud-alt-ft">(8,038 FT)</span>
+      </div>
+      <div class="telemetry-sub-row">
+        <span class="hud-sub-item">PITCH: <span id="hud-pitch-val">-45°</span></span>
+        <span class="hud-sub-item">COORD: <span id="hud-coords-val">28.614°N, 77.209°E</span></span>
+      </div>
+    </div>
+
+    <!-- Interactive Road Street View Mode Toggle Button -->
+    <button class="street-view-mode-btn" id="street-view-mode-toggle" title="Click any road or street on map to open ground level 360° Street View">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 0 0-4 4c0 3 4 8 4 8s4-5 4-8a4 4 0 0 0-4-4z"/><circle cx="12" cy="6" r="1.5"/></svg>
+      <span id="sv-btn-label">STREET VIEW: OFF</span>
+    </button>
+
+    <!-- Tactical Info & Operational Manual (Legends, Shortcuts, Icons) -->
+    <button class="tactical-info-btn" id="btn-tactical-info" title="Tactical Legend & Operational Manual (Icons, Controls, Shortcuts)">
+      <span style="font-weight: 800; font-family: var(--font-mono); font-size: 11px; background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.6); border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: #38BDF8;">i</span>
+      <span>INFO</span>
+    </button>
+  </div>
+
+  <!-- In-App Integrated Street View Surveillance Drawer -->
+  <div id="street-view-dock" class="glass-panel street-view-dock" style="display: none;">
+    <div class="section-header" style="margin-bottom: 8px;">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="color: var(--brand-violet); font-size: 12px;">●</span>
+        <span class="section-title">STREET VIEW // ROAD OPTICAL FEED</span>
+      </div>
+      <button id="street-view-close" class="crafted-btn secondary" style="padding: 2px 8px; font-size: 10px;">CLOSE</button>
+    </div>
+    <div id="street-view-coords" style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-bottom: 6px;">GROUND RECON: —</div>
+    <div class="street-view-embed-box">
+      <iframe id="street-view-iframe" src="" allowfullscreen loading="lazy"></iframe>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+      <span style="font-size: 9px; color: var(--text-muted); font-family: var(--font-mono);">GOOGLE ROAD RECON INTERACTIVE</span>
+      <a id="street-view-ext-link" href="#" target="_blank" class="crafted-btn secondary" style="font-size: 9px; padding: 2px 8px; text-decoration: none;">EXTERNAL MAPS ↗</a>
+    </div>
+  </div>
+
+  <!-- Bottom Bar: Geofenced State Radio Tuner, Vision Modes & Basemap Settings -->
+  <footer class="glass-panel bottom-dock" id="bottom-dock">
+    <!-- State Radio Broadcaster -->
+    <div class="radio-dock-left">
+      <span style="font-size: 11px; font-weight: 700; color: var(--text-muted);">STATE RADIO:</span>
+      <span class="state-badge" id="current-state-badge">DELHI NCR</span>
+      <select class="radio-dropdown" id="radio-select">
+        <option value="">Loading state broadcasters...</option>
+      </select>
+      <button class="crafted-btn" id="radio-play-btn" style="flex:0; padding:5px 12px; font-size:10px;">PLAY</button>
+      <audio id="radio-audio"></audio>
+    </div>
+
+    <!-- Vision Modes (God's Eye NVG/FLIR/CRT/Optical) -->
+    <div class="vision-mode-dock">
+      <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); margin-right: 4px;">VISION:</span>
+      <button class="vision-btn active" data-vision="optical">OPTICAL</button>
+      <button class="vision-btn" data-vision="nvg">NVG</button>
+      <button class="vision-btn" data-vision="flir">FLIR</button>
+      <button class="vision-btn" data-vision="crt">CRT</button>
+    </div>
+
+    <!-- Basemap Switcher & Audio Controls (Moved to Bottom as Requested) -->
+    <div class="basemap-dock">
+      <button class="sector-btn active" id="btn-map-3d">3D PHOTOREAL</button>
+      <button class="sector-btn" id="btn-map-sat">SATELLITE</button>
+      <button class="sector-btn" id="btn-map-road">ROAD MAP</button>
+      <button class="sector-btn" id="btn-map-dark">DARK TACTICAL</button>
+      <button class="crafted-btn secondary" id="btn-sound-toggle" style="padding:4px 8px; font-size:10px;" title="Toggle Tactical Sounds">AUDIO: ON</button>
+    </div>
+  </footer>
+
+  <!-- Tactical Settings & Custom API Keys Configuration Modal -->
+  <div id="settings-modal" class="settings-modal-overlay" style="display: none;">
+    <div class="settings-dialog">
+      <div class="settings-header">
+        <div class="settings-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          IISN TACTICAL CONFIGURATION & KEYS
+        </div>
+        <button id="settings-close-btn" class="hazard-close-btn" title="Close Settings">✕</button>
+      </div>
+
+      <div class="settings-notice">
+        Enter your own geospatial & AI keys below. Keys are securely stored in your browser's local storage and used for live feeds. Leave blank to use server environment defaults.
+      </div>
+
+      <div class="settings-field-group">
+        <label class="settings-label">
+          <span>Cesium Ion Access Token</span>
+          <span class="req">3D Photoreal Globe</span>
+        </label>
+        <input type="password" id="cfg-cesium-token" class="settings-input" placeholder="eyJhbGciOiJIUzI1NiI...">
+      </div>
+
+      <div class="settings-field-group">
+        <label class="settings-label">
+          <span>AISStream API Key</span>
+          <span class="req">Indian EEZ Maritime</span>
+        </label>
+        <input type="password" id="cfg-aisstream-key" class="settings-input" placeholder="3f208b0c531b7173aecf...">
+      </div>
+
+      <div class="settings-field-group">
+        <label class="settings-label">
+          <span>TomTom API Key</span>
+          <span class="req">Traffic Flow & Places</span>
+        </label>
+        <input type="password" id="cfg-tomtom-key" class="settings-input" placeholder="JApPT9cOFScvU2YSCxK...">
+      </div>
+
+      <div class="settings-field-group">
+        <label class="settings-label">
+          <span>NASA FIRMS Map Key</span>
+          <span class="req">Satellite Thermal Fires</span>
+        </label>
+        <input type="password" id="cfg-firms-key" class="settings-input" placeholder="95cdd3fb079ce01b3f0...">
+      </div>
+
+      <div class="settings-field-group">
+        <label class="settings-label">
+          <span>AQICN / WAQI API Token</span>
+          <span class="req">Real-time Air Quality</span>
+        </label>
+        <input type="password" id="cfg-aqi-token" class="settings-input" placeholder="a5c049b27979059d1335...">
+      </div>
+
+      <div class="settings-field-group">
+        <label class="settings-label">
+          <span>Tactical AI Engine Provider</span>
+        </label>
+        <select id="cfg-ai-provider" class="settings-select">
+          <option value="ollama">Local Ollama (qwen2.5:7b on localhost:11434)</option>
+          <option value="openrouter">OpenRouter (Remote LLM API)</option>
+          <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+        </select>
+      </div>
+
+      <div class="settings-field-group" id="cfg-ai-key-wrap" style="display: none;">
+        <label class="settings-label">
+          <span id="cfg-ai-key-label">AI Provider API Key</span>
+        </label>
+        <input type="password" id="cfg-ai-key" class="settings-input" placeholder="sk-or-... or sk-...">
+      </div>
+
+      <div class="settings-footer">
+        <button id="settings-save-btn" class="settings-btn primary">SAVE & APPLY CONFIG</button>
+        <button id="settings-cancel-btn" class="settings-btn">CANCEL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tactical Legend & Operational Manual Modal -->
+  <div id="legend-modal" class="legend-modal-overlay" style="display: none;">
+    <div class="legend-dialog">
+      <div class="legend-header">
+        <div class="legend-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          IISN TACTICAL LEGEND & OPERATIONAL MANUAL
+        </div>
+        <button id="legend-close-btn" class="hazard-close-btn" title="Close Legend">✕</button>
+      </div>
+
+      <div class="legend-scroll-content">
+        <div class="legend-grid">
+          <!-- 1. Aircraft & Airspace Symbols -->
+          <div class="legend-card">
+            <div class="legend-card-title">
+              <span>✈️ AIRSPACE & FLIGHT SYMBOLS</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: #38BDF8; box-shadow: 0 0 8px #38BDF8;"></span>
+              <div>
+                <span class="legend-item-name">Cyan Aircraft:</span>
+                <span class="legend-item-desc">Commercial Domestic Flights (IndiGo, Air India, SpiceJet, Akasa)</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: #D45B3E; box-shadow: 0 0 8px #D45B3E;"></span>
+              <div>
+                <span class="legend-item-name">Crimson Aircraft:</span>
+                <span class="legend-item-desc">Indian Air Force Combat Patrols (Rafale, Su-30MKI, C-17, AWACS)</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: #F59E0B; box-shadow: 0 0 8px #F59E0B;"></span>
+              <div>
+                <span class="legend-item-name">Amber Aircraft:</span>
+                <span class="legend-item-desc">International Flights transiting sovereign Indian flight corridors</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: transparent; border: 1px dashed #38BDF8;"></span>
+              <div>
+                <span class="legend-item-name">Heading Needle:</span>
+                <span class="legend-item-desc">Directional arrow indicates real-time magnetic course vector</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Indian Railways Symbols -->
+          <div class="legend-card">
+            <div class="legend-card-title">
+              <span>🚆 INDIAN RAILWAYS NETWORK</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: #00F2FE; box-shadow: 0 0 8px #00F2FE;"></span>
+              <div>
+                <span class="legend-item-name">Cyan Train:</span>
+                <span class="legend-item-desc">Vande Bharat Express Semi-High Speed Train 18 Corridors</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: #D45B3E; box-shadow: 0 0 8px #D45B3E;"></span>
+              <div>
+                <span class="legend-item-name">Red Train:</span>
+                <span class="legend-item-desc">Rajdhani / Shatabdi Express Premium High-Priority Lines</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: #6864F6; box-shadow: 0 0 8px #6864F6;"></span>
+              <div>
+                <span class="legend-item-name">Purple Train:</span>
+                <span class="legend-item-desc">Superfast Express & Dedicated Freight Corridors (WAP-7 / WAG-12B)</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: #E65100;"></span>
+              <div>
+                <span class="legend-item-name">Steel Tracks:</span>
+                <span class="legend-item-desc">OpenRailwayMap infrastructure showing junctions, tracks, sidings</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Maritime AIS & ISRO Space -->
+          <div class="legend-card">
+            <div class="legend-card-title">
+              <span>🚢 MARITIME & 🛰️ ISRO SPACE</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: #00FF88; box-shadow: 0 0 8px #00FF88;"></span>
+              <div>
+                <span class="legend-item-name">Green Vessel:</span>
+                <span class="legend-item-desc">Commercial Merchant Fleet (Container, Crude Oil & Gas Tankers)</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: #D45B3E; box-shadow: 0 0 8px #D45B3E;"></span>
+              <div>
+                <span class="legend-item-name">Crimson Vessel:</span>
+                <span class="legend-item-desc">Indian Navy & Coast Guard Warships (INS Vikrant, Destroyers)</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: #00F2FE; box-shadow: 0 0 8px #00F2FE;"></span>
+              <div>
+                <span class="legend-item-name">Cyan Satellite:</span>
+                <span class="legend-item-desc">ISRO 3D Spacecraft (Aditya-L1, Chandrayaan-3, Cartosat, GSAT)</span>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: #F43F5E;"></span>
+              <div>
+                <span class="legend-item-name">🔥 Hotspots / Airbases:</span>
+                <span class="legend-item-desc">NASA FIRMS satellite thermal fires & IAF Command Airbases</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Tactical Controls & Keyboard Shortcuts -->
+          <div class="legend-card">
+            <div class="legend-card-title">
+              <span>⌨️ CONTROLS & SHORTCUTS</span>
+            </div>
+            <div class="shortcut-row">
+              <span class="legend-item-desc">Select Asset / Target Lock:</span>
+              <span class="shortcut-key">LEFT CLICK</span>
+            </div>
+            <div class="shortcut-row">
+              <span class="legend-item-desc">Pan / Rotate Camera:</span>
+              <span class="shortcut-key">LEFT DRAG</span>
+            </div>
+            <div class="shortcut-row">
+              <span class="legend-item-desc">3D Orbit / Perspective Tilt:</span>
+              <span class="shortcut-key">RIGHT DRAG</span>
+            </div>
+            <div class="shortcut-row">
+              <span class="legend-item-desc">Turbo Altitude Zoom (3.5x):</span>
+              <span class="shortcut-key">SHIFT + SCROLL</span>
+            </div>
+            <div class="shortcut-row">
+              <span class="legend-item-desc">Micro Precision Zoom (0.25x):</span>
+              <span class="shortcut-key">CTRL + SCROLL</span>
+            </div>
+            <div class="shortcut-row">
+              <span class="legend-item-desc">Toggle Tactical HUD Overlay:</span>
+              <span class="shortcut-key">SPACE / H</span>
+            </div>
+            <div class="shortcut-row">
+              <span class="legend-item-desc">Engage / Exit 3D Chase:</span>
+              <span class="shortcut-key">C</span>
+            </div>
+            <div class="shortcut-row">
+              <span class="legend-item-desc">Align True North:</span>
+              <span class="shortcut-key">CLICK COMPASS</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Tactical AI Mastermind Voice Commands Guide -->
+        <div class="legend-card" style="margin-top: 4px;">
+          <div class="legend-card-title">
+            <span>🧠 TACTICAL AI MASTERMIND VOICE DIRECTIVES</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; font-size: 11px;">
+            <div>
+              <strong style="color: #38BDF8;">Spatial Recon:</strong>
+              <div style="color: var(--text-muted);">"Where am I?" / "What is this place?"</div>
+            </div>
+            <div>
+              <strong style="color: #38BDF8;">Route Planner:</strong>
+              <div style="color: var(--text-muted);">"Plan route from Delhi to Agra" / "Directions to Goa"</div>
+            </div>
+            <div>
+              <strong style="color: #38BDF8;">Live Chase:</strong>
+              <div style="color: var(--text-muted);">"Track Vande Bharat Express" / "Follow flight" / "Exit chase"</div>
+            </div>
+            <div>
+              <strong style="color: #38BDF8;">Travel & Knowledge:</strong>
+              <div style="color: var(--text-muted);">"Tell me about Jaipur hotels" / "What is the AQI in Mumbai?"</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CesiumJS Script -->
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.124/Build/Cesium/Cesium.js"></script>
+  <!-- Application Script -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,7 +1,15 @@
 # 🇮🇳 INDIA INTEGRATED SURVEILLANCE NETWORK (IISN)
 ### Next-Gen 3D Geospatial Intelligence & Tactical Situational Awareness Console
 
-> *Inspired by the concept of **God's Eye View** by Bilawal Sidhu — engineered specifically for high-precision surveillance, airspace tracking, railway telemetry, maritime monitoring, and national situational awareness across the Indian Subcontinent.*
+> *Inspired by the concept of [**God's Eye View**](https://github.com/bilawalsidhu/gods-eye-view) by Bilawal Sidhu — engineered specifically for high-precision surveillance, airspace tracking, railway telemetry, maritime monitoring, and national situational awareness across the Indian Subcontinent.*
+
+---
+
+## 📥 Direct Download (Windows Desktop App)
+
+You do **not** need to install Node.js, dependencies, or build from source:
+* 📦 **[Download Pre-Built Windows Standalone Release (v2.0.0)](https://github.com/Aditya0973/india-integrated-surveillance-network-exp/releases)**
+* Extract the `.zip` anywhere on your PC and double-click **`IISN Tactical Console.exe`** to launch instantly.
 
 ---
 
@@ -140,7 +148,7 @@ IISN includes native Vercel serverless configurations (`vercel.json` and `api/in
 ---
 
 ## 📜 Acknowledgements & Inspirations
-* Inspired by **God's Eye View** by Bilawal Sidhu.
+* Inspired by [**God's Eye View**](https://github.com/bilawalsidhu/gods-eye-view) by Bilawal Sidhu.
 * Map and 3D terrain streaming powered by **CesiumJS** and **Google 3D Tiles**.
 * Telemetry feeds courtesy of OpenSky Network, AISStream, Indian Railways, ISRO, NASA FIRMS, WAQI, and CPCB.
 
