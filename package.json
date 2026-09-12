@@ -1,0 +1,39 @@
+{
+  "name": "iisn-console",
+  "version": "2.0.0",
+  "description": "India Integrated Surveillance Network (IISN) — 3D Geospatial Intelligence & Situational Awareness Console",
+  "main": "main-electron.cjs",
+  "type": "module",
+  "scripts": {
+    "start": "node server/proxy.js",
+    "electron": "electron .",
+    "dev": "node server/proxy.js",
+    "test": "node test-iisn.js",
+    "package": "electron-builder --win portable --dir",
+    "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "in.iisn.console",
+    "productName": "IISN Tactical Console",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable"
+    },
+    "files": [
+      "main-electron.cjs",
+      "src/**/*",
+      "server/**/*",
+      "package.json"
+    ]
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^34.5.8"
+  }
+}
